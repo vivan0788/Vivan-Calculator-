@@ -1,0 +1,202 @@
+/* =========================================================
+   Glass Calculator — style.css
+   1 Tokens · 2 Background · 3 Glass surface · 4 Layout
+   5 Display · 6 Keypad · 7 History · 8 Animations · 9 Responsive
+   ========================================================= */
+
+/* ---------- 1. Design tokens ---------- */
+:root {
+  --text: #f4f6ff;
+  --muted: rgba(226, 232, 255, .68);
+  --edge: rgba(255, 255, 255, .18);
+  --glass: rgba(255, 255, 255, .08);
+  --glass-hi: rgba(255, 255, 255, .17);
+  --cyan: #67e8f9;
+  --violet: #a78bfa;
+  --danger: #fda4af;
+  --font: "Inter", "SF Pro Display", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --pad: 12px;
+  /* Calculator height: fills small screens, capped on big ones; respects phone safe areas */
+  --h: min(720px, calc(100vh - 2 * var(--pad)));
+}
+@supports (height: 100dvh) {
+  :root { --h: min(720px, calc(100dvh - 2 * var(--pad) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))); }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  display: grid; place-items: center;
+  padding: var(--pad);
+  padding-top: calc(var(--pad) + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(var(--pad) + env(safe-area-inset-bottom, 0px));
+  overflow: hidden;              /* no accidental page scroll on phones */
+  overscroll-behavior: none;
+  background: #0a0b1f;
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-tap-highlight-color: transparent;
+}
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+/* ---------- 2. Background: dark gradient + blurred orbs (pure CSS) ---------- */
+.bg {
+  position: fixed; inset: 0; z-index: -1; overflow: hidden;
+  background:
+    radial-gradient(60% 50% at 85% 90%, rgba(124, 58, 237, .35), transparent 70%),
+    linear-gradient(160deg, #070818 0%, #0f1035 55%, #150c33 100%);
+}
+.bg::before, .bg::after {
+  content: ""; position: absolute; border-radius: 50%;
+  width: min(62vmax, 560px); aspect-ratio: 1;
+  filter: blur(70px); opacity: .6;
+}
+.bg::before { top: -12%; left: -10%; background: radial-gradient(circle at 35% 35%, #3b82f6, #6d28d9); animation: drift 24s ease-in-out infinite alternate; }
+.bg::after  { bottom: -14%; right: -8%; background: radial-gradient(circle at 60% 40%, #22d3ee, #4f46e5); animation: drift 28s ease-in-out infinite alternate-reverse; }
+
+/* ---------- 3. Glass surface ---------- */
+.glass {
+  background: linear-gradient(145deg, rgba(255,255,255,.15), rgba(255,255,255,.05));
+  border: 1px solid var(--edge);
+  border-radius: 32px;
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  backdrop-filter: blur(24px) saturate(140%);
+  box-shadow: 0 24px 60px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.2);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass { background: rgba(28, 30, 70, .92); }   /* readable fallback for old browsers */
+}
+
+/* ---------- 4. Layout ---------- */
+.app {
+  position: relative; display: flex; gap: 20px;
+  height: var(--h);
+  animation: rise .6s cubic-bezier(.2,.8,.2,1) both;   /* entrance */
+}
+.calc {
+  width: min(400px, calc(100vw - 2 * var(--pad)));
+  height: 100%;
+  display: flex; flex-direction: column; gap: 12px;
+  padding: clamp(14px, 4vw, 22px);
+}
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+h1, h2 { margin: 0; font-size: 1rem; font-weight: 600; letter-spacing: .02em; color: var(--muted); }
+.chip {
+  padding: 8px 14px; min-height: 36px; border-radius: 999px; cursor: pointer;
+  background: var(--glass); border: 1px solid var(--edge); font-size: .85rem;
+  transition: background .2s, transform .12s;
+}
+.chip:hover { background: var(--glass-hi); }
+.chip:active { transform: scale(.95); }
+
+/* ---------- 5. Display ---------- */
+.display {
+  flex: 0 0 auto; min-height: clamp(84px, 22dvh, 160px);
+  display: flex; flex-direction: column; justify-content: flex-end; gap: 6px;
+  padding: 14px 18px; border-radius: 24px;
+  background: rgba(5, 6, 25, .35); border: 1px solid rgba(255,255,255,.1);
+  box-shadow: inset 0 2px 12px rgba(0,0,0,.25);
+}
+/* Long expressions scroll sideways instead of clipping; margin-left:auto keeps short ones right-aligned */
+.expr { display: flex; overflow-x: auto; scrollbar-width: none; color: var(--muted); font-size: 1.1rem; min-height: 1.5em; border-radius: 8px; }
+.expr::-webkit-scrollbar { display: none; }
+.expr span { margin-left: auto; white-space: nowrap; }
+.result {
+  display: block; text-align: right; white-space: nowrap; overflow-x: auto; scrollbar-width: none;
+  min-height: 1.15em; font-weight: 600; letter-spacing: -.02em; line-height: 1.15;
+  font-variant-numeric: tabular-nums; transition: font-size .15s;
+}
+.result::-webkit-scrollbar { display: none; }
+.result[data-size="l"]  { font-size: clamp(2.4rem, 11vw, 3.4rem); }
+.result[data-size="m"]  { font-size: clamp(2rem, 9vw, 2.7rem); }
+.result[data-size="s"]  { font-size: clamp(1.6rem, 7vw, 2.1rem); }
+.result[data-size="xs"] { font-size: clamp(1.25rem, 5.5vw, 1.6rem); }
+.result.error { color: var(--danger); font-size: clamp(1.2rem, 5.5vw, 1.6rem) !important; }
+.result.tick { animation: tick .18s ease-out; }
+.calc.shake { animation: shake .35s ease-in-out; }
+
+/* ---------- 6. Keypad ---------- */
+.keys {
+  flex: 1; min-height: 0; display: grid;
+  grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(5, 1fr);
+  gap: clamp(8px, 2.4vw, 12px);
+}
+.key {
+  min-height: 0; padding: 0; cursor: pointer; touch-action: manipulation;
+  font-size: clamp(1.15rem, 5vw, 1.5rem); font-weight: 500;
+  border-radius: clamp(16px, 4.5vw, 22px);
+  background: linear-gradient(160deg, rgba(255,255,255,.14), rgba(255,255,255,.05));
+  border: 1px solid var(--edge);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  box-shadow: 0 6px 16px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.18);
+  transition: transform .12s ease, background .2s ease, box-shadow .2s ease;
+  user-select: none; -webkit-user-select: none;
+}
+@media (hover: hover) {
+  .key:hover { background: linear-gradient(160deg, rgba(255,255,255,.24), rgba(255,255,255,.09)); transform: translateY(-1px); }
+}
+.key:active, .key.pressed { transform: scale(.93); background: rgba(255,255,255,.26); box-shadow: inset 0 2px 8px rgba(0,0,0,.3); }
+.key.fn { color: #c7d2fe; font-size: clamp(1rem, 4.2vw, 1.25rem); }
+.key.danger { color: var(--danger); }
+.key.op { color: var(--cyan); font-size: clamp(1.4rem, 6vw, 1.8rem); }
+/* "=" gets a distinct tinted-glass accent while staying translucent */
+.key.equals {
+  color: #fff; font-size: clamp(1.5rem, 6.5vw, 1.9rem);
+  background: linear-gradient(145deg, rgba(99,102,241,.75), rgba(34,211,238,.55));
+  border-color: rgba(255,255,255,.3);
+  box-shadow: 0 8px 22px rgba(79,70,229,.35), inset 0 1px 0 rgba(255,255,255,.35);
+}
+@media (hover: hover) { .key.equals:hover { background: linear-gradient(145deg, rgba(120,122,255,.85), rgba(56,225,250,.65)); } }
+.key.equals:active, .key.equals.pressed { background: linear-gradient(145deg, rgba(79,70,229,.9), rgba(34,211,238,.7)); }
+
+/* ---------- 7. History ---------- */
+.history {
+  display: none; /* replaced per breakpoint below */
+  flex-direction: column; gap: 12px; padding: 20px; overflow: hidden;
+}
+.hist-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.hist-actions { display: flex; gap: 8px; }
+.empty { margin: 8px 0; color: var(--muted); font-size: .9rem; line-height: 1.5; }
+#histList { list-style: none; margin: 0; padding: 0; flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; scrollbar-width: thin; }
+.item {
+  width: 100%; text-align: right; cursor: pointer; padding: 10px 14px; border-radius: 16px;
+  background: var(--glass); border: 1px solid rgba(255,255,255,.1);
+  animation: slideIn .25s ease-out both; transition: background .2s;
+}
+.item:hover { background: var(--glass-hi); }
+.item .e { display: block; color: var(--muted); font-size: .9rem; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+.item .r { display: block; font-size: 1.15rem; font-weight: 600; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+
+/* ---------- 8. Animations ---------- */
+@keyframes rise   { from { opacity: 0; transform: translateY(18px) scale(.98); } }
+@keyframes tick   { from { opacity: .4; transform: translateY(5px); } }
+@keyframes shake  { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+@keyframes slideIn{ from { opacity: 0; transform: translateY(8px); } }
+@keyframes drift  { to { transform: translate(6vw, 5vh) scale(1.12); } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+}
+
+/* ---------- 9. Responsive ---------- */
+/* Mobile / tablet: history is a slide-over sheet on top of the calculator */
+@media (max-width: 879px) {
+  .history {
+    display: flex; position: absolute; inset: 0; z-index: 5;
+    background: linear-gradient(145deg, rgba(30,32,80,.82), rgba(14,15,45,.9));
+    transition: opacity .22s ease, transform .22s ease, visibility .22s;
+  }
+  .history:not(.open) { visibility: hidden; opacity: 0; transform: translateY(20px); }
+}
+/* Desktop: history sits beside the calculator, toggle buttons are not needed */
+@media (min-width: 880px) {
+  .history { display: flex; width: 300px; }
+  #histToggle, .close { display: none; }
+}
+/* Very short screens: give the keypad more room */
+@media (max-height: 640px) {
+  .calc { gap: 8px; }
+  .chip { min-height: 30px; padding: 5px 12px; }
+  .display { min-height: 76px; padding: 10px 14px; }
+}
